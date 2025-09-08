@@ -3,10 +3,9 @@ from pyspark.sql import SparkSession, Row
 from pyspark.sql.functions import col, explode, from_json, udf
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, LongType
 import json
+import sys
 
-
-# from validate_module import validate_payload   # <-- validation compiler function
-
+from validations.ret10.generated import l1_validations
 # read json data from the raw json payloads
 def read_json_data(spark, paths):
     # json root fields are type, user_id, data
@@ -36,8 +35,7 @@ def read_json_data(spark, paths):
 def validate_payload_json(payload_str:str)->str:
     try:
         payload = json.loads(payload_str)
-        # result = validate_payload(payload)  # validation compiler 
-        result="invalid json"
+        result = l1_validations.perform_l1_validations(payload['context']['action'],payload)  # validation compiler 
         return json.dumps(result)
     except Exception as e:
         return json.dumps({"issues": [f"Validation error: {str(e)}"]})
@@ -63,16 +61,11 @@ if __name__ == "__main__":
         .appName("ONDC Payload Validation") \
         .enableHiveSupport() \
         .getOrCreate()
-    json_raw_df= read_json_data(spark, ["events+0+3073386206.bin.gz"])
+    json_raw_df= read_json_data(spark, ["events+0+3073386206.bin"])
+
     output_df=run_validation(json_raw_df)
     output_df.show(2)
     output_to_csv(output_df, "output")
-
-
-
-    # Example usage
-    # convert_csv_to_parquet(spark, "input.csv", "output.parquet")
-    # run_validation(spark, "output.parquet", payload_validation_report")
     
 
     spark.stop()
