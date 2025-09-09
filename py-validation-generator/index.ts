@@ -19,7 +19,7 @@ const runCompiler = async (buildYaml: any, outputPath: string) => {
   ); // pass the validations object and the name of the function of the generated code
 };
 
-let domain = "ret10";
+let domain = "RET10";
 const buildYaml = readFileSync(
   path.join(process.cwd(), `./build-yaml/${domain}/build.yaml`),
   "utf8"
