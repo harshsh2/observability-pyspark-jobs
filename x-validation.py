@@ -5,7 +5,7 @@ from pyspark.sql.types import StructType, StructField, StringType, ArrayType, Lo
 import json
 import sys
 
-from validations.ret10.generated import l1_validations
+from validations.RET10.generated import l1_validations
 # read json data from the raw json payloads
 def read_json_data(spark, paths):
     # json root fields are type, user_id, data
