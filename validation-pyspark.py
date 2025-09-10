@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, udf, from_json, to_json
+from pyspark.sql.functions import col, udf, from_json, split
 from pyspark.sql.types import StructType, StructField, StringType, LongType, ArrayType
 import json
 import importlib
@@ -23,8 +23,10 @@ def validate_payload_json(payload_str: str) -> str:
     try:
         payload = json.loads(payload_str)
         raw_domain = payload['context'].get('domain', '')
-        domain = raw_domain.split(":")[-1]  # ONDC:RET10 -> RET10
+        domain = raw_domain.split(":")[-1] if raw_domain else None # ONDC:RET10 -> RET10
         action = payload['context'].get('action', '')
+        transaction_id= payload['context'].get('transaction_id', None)
+        message_id= payload['context'].get('message_id', None),
 
         # Import validation module (cache)
         if domain not in validation_modules_cache:
@@ -35,8 +37,8 @@ def validate_payload_json(payload_str: str) -> str:
                 return json.dumps({
                     "status": "not_applicable",
                     "domain":payload['context'].get('domain', None),
-                    "transaction_id": payload['context'].get('transaction_id', None),
-                    "message_id": payload['context'].get('message_id', None),
+                    "transaction_id": transaction_id,
+                    "message_id": message_id,
                 })
 
         l1_validations = validation_modules_cache[domain]
@@ -45,8 +47,8 @@ def validate_payload_json(payload_str: str) -> str:
             "status": "success",
             "result": result,
             "domain":payload['context'].get('domain', None),
-            "transaction_id": payload['context'].get('transaction_id', None),
-            "message_id": payload['context'].get('message_id', None),
+            "transaction_id": transaction_id,
+            "message_id": message_id,
         })
 
     except Exception as e:
@@ -87,18 +89,22 @@ def run_validation(df):
             StructField("result", StringType(), True),
             StructField("domain", StringType(), True),
         ])
-    ))
+    )).withColumn("subscriber_id", split(col("user_id"), "@")[0]).withColumn("subscriber_type", split(col("user_id"), "@")[1])
+
+
     base_cols = [
         col("user_id").alias("subscriber_id"),
         col("type").alias("API"),
         col("parsed.transaction_id"),
         col("parsed.message_id"),
         col("parsed.domain"),
+        col("subscriber_id"),
+        col("subscriber_type")
     ]
 
     # separate outputs
     df_success = df_parsed.filter(col("parsed.status") == "success").select(*base_cols,
-        col("parsed.result")).alias("issues")
+        col("parsed.result").alias("issues"))
 
     df_missing = df_parsed.filter(col("parsed.status") == "not_applicable").select(*base_cols)
 
