@@ -50,7 +50,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["search"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -290,7 +290,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_search"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -857,7 +857,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["select"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -957,7 +957,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_select"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -1190,7 +1190,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["init"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -1382,7 +1382,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_init"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -1747,7 +1747,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["confirm"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -2125,7 +2125,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_confirm"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -2591,7 +2591,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["status"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -2664,7 +2664,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_status"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -3394,7 +3394,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["update"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -4016,7 +4016,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["track"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -4089,7 +4089,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_track"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -4243,7 +4243,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["cancel"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -4372,7 +4372,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_cancel"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
@@ -4867,7 +4867,7 @@
 			
 			- **condition CONTEXT_ENUM_ACTION**: $.context.action must be equal to ["on_update"]
 			
-			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5"]
+			- **condition CONTEXT_ENUM_VERSION**: every element of $.context.core_version must be in ["1.2.5", "1.2.0"]
 			
 			- **condition CONTEXT_REG_BAP_URI**: all elements of $.context.bap_uri must follow every regex in ["^https?\:\/\/"]
 			
