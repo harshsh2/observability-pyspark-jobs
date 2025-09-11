@@ -1,5 +1,6 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, udf, from_json, split
+from datetime import datetime
+from pyspark.sql.functions import col, udf, from_json, split, lit
 from pyspark.sql.types import StructType, StructField, StringType, LongType, ArrayType
 import json
 import importlib
@@ -70,9 +71,19 @@ def read_json_data(spark, paths):
         raw_df = df_single if raw_df is None else raw_df.union(df_single)
     return raw_df.withColumnRenamed("data", "value")
 
-def output_to_csv(df, output_path):
-    df.write.mode("overwrite").csv(output_path, header=True)
+# def output_to_parquet(df, output_path):
+#     df.write.mode("overwrite").parquet(output_path)
 
+def output_to_parquet(df, base_path):
+    today = datetime.now().strftime("%Y-%m-%d")
+    df_with_date = df.withColumn("dt", lit(today))  # add partition column
+
+    (
+        df_with_date.write
+        .mode("append")         # append data if partition exists
+        .partitionBy("dt")      # creates dt=YYYY-MM-DD folders
+        .parquet(base_path)
+    )
 # --------------------------------------------------------
 # Main validation runner
 # --------------------------------------------------------
@@ -93,12 +104,11 @@ def run_validation(df):
 
 
     base_cols = [
-        col("user_id").alias("subscriber_id"),
+        col("subscriber_id"),
+        col("parsed.domain"),
         col("type").alias("API"),
         col("parsed.transaction_id"),
         col("parsed.message_id"),
-        col("parsed.domain"),
-        col("subscriber_id"),
         col("subscriber_type")
     ]
 
@@ -127,7 +137,7 @@ if __name__ == "__main__":
     # Write outputs
     df_success.show(2)
     df_missing.show(2)
-    output_to_csv(df_success, "output/validations_done")
-    output_to_csv(df_missing, "output/validations_missing")
+    output_to_parquet(df_success, "output/validations_done")
+    output_to_parquet(df_missing, "output/validations_missing")
 
     spark.stop()
