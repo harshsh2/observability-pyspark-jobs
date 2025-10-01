@@ -60,14 +60,17 @@ def validate_payload_json(payload_str: str) -> str:
         domain = raw_domain.split(":")[-1] if raw_domain else None  # ONDC:RET10 -> RET10
         action = payload['context'].get('action', '')
         transaction_id = payload['context'].get('transaction_id', None)
-        message_id = payload['context'].get('message_id', None),
+        message_id = payload['context'].get('message_id', None)
+        print(f"[DEBUG] Validating payload | domain={domain}, action={action}, tx={transaction_id}, msg={message_id}")
 
         # Import validation module (cache)
         if domain not in validation_modules_cache:
             try:
                 module_name = f"validations.{domain}.generated.l1_validations"
+                print(f"[INFO] Loading validation module: {module_name}")
                 validation_modules_cache[domain] = importlib.import_module(module_name)
             except ModuleNotFoundError:
+                print(f"[WARN] No validation module found for domain={domain}")
                 print("enable to load the modules")
                 return json.dumps({
                     "status": "not_applicable",
@@ -78,6 +81,7 @@ def validate_payload_json(payload_str: str) -> str:
 
         l1_validations = validation_modules_cache[domain]
         result = l1_validations.perform_l1_validations(action, payload)
+        print(f"[INFO] Validation success | domain={domain}, tx={transaction_id}")
         return json.dumps({
             "status": "success",
             "result": result,
@@ -87,7 +91,8 @@ def validate_payload_json(payload_str: str) -> str:
         })
 
     except Exception as e:
-        print("validation error in processing the file")
+        print(f"[ERROR] Validation failed: {str(e)}")
+        # print("validation error in processing the file")
         return json.dumps({
             "status": "error",
             "issues": [f"Validation error: {str(e)}"]
@@ -103,9 +108,10 @@ validate_udf = udf(validate_payload_json, StringType())
 def read_json_data(spark, paths):
     raw_df = None
     for path in paths:
-        print(f"Reading: {path}")
+        print(f"[INFO] Reading input path: {path}")
         df_single = spark.read.schema(schema).json(path)
         raw_df = df_single if raw_df is None else raw_df.union(df_single)
+    print("[INFO] Finished reading input files")
     return raw_df.withColumnRenamed("data", "value")
 
 
@@ -115,20 +121,23 @@ def read_json_data(spark, paths):
 def output_to_parquet(df, base_path):
     today = datetime.now().strftime("%Y-%m-%d")
     df_with_date = df.withColumn("dt", lit(today))  # add partition column
-
+    print(f"[INFO] Writing DataFrame to {base_path} partitioned by dt={today}")
     (
         df_with_date.write
         .mode("append")  # append data if partition exists
         .partitionBy("dt")  # creates dt=YYYY-MM-DD folders
         .parquet(base_path)
     )
+    print(f"[INFO] Write complete (in parquet): {base_path}")
 
 
 # --------------------------------------------------------
 # Main validation runner
 # --------------------------------------------------------
 def run_validation(df):
+    print("[INFO] Running validation UDF...")
     df_validated = df.withColumn("validation", validate_udf(col("value")))
+    print("[INFO] Parsing validation results into structured columns...")
 
     # parse JSON result into columns
     df_parsed = df_validated.withColumn("parsed", from_json(col("validation"),
@@ -153,11 +162,16 @@ def run_validation(df):
         col("subscriber_type")
     ]
 
+    print("[INFO] Filtering validations Performed...")
+
     # separate outputs
     df_success = df_parsed.filter(col("parsed.status") == "success").select(*base_cols,
                                                                             col("parsed.result").alias("issues"))
+    print("[INFO] Filtering validations not applicable...")
+
 
     df_missing = df_parsed.filter(col("parsed.status") == "not_applicable").select(*base_cols)
+    print("[INFO] Validation pipeline completed")
 
     return df_success, df_missing
 
@@ -169,8 +183,11 @@ json_raw_df = read_json_data(spark,
 
 # Run validation
 df_success, df_missing = run_validation(json_raw_df)
+
 # Write outputs
+print("[INFO] Showing dataframes where validations are performed...")
 df_success.show(2)
+print("[INFO] Showing dataframes where validations are not applicable...")
 df_missing.show(2)
 output_to_parquet(df_success,
                   "s3://ondc-rds-analytics-data-export/temp/pyspark-validations-job/output/validations_done")
