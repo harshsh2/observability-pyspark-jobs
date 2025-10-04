@@ -4,8 +4,6 @@ from pyspark.sql.functions import col, udf, from_json, split, lit
 from pyspark.sql.types import StructType, StructField, StringType, LongType, ArrayType
 import json
 import importlib
-import sys
-import os
 
 # --------------------------------------------------------
 # Schema for raw payload
@@ -29,19 +27,15 @@ def validate_payload_json(payload_str: str) -> str:
         domain = raw_domain.split(":")[-1] if raw_domain else None # ONDC:RET10 -> RET10
         action = payload['context'].get('action', '')
         transaction_id= payload['context'].get('transaction_id', None)
-        message_id= payload['context'].get('message_id', None)
-        print(f"[DEBUG] Validating payload | domain={domain}, action={action}, tx={transaction_id}, msg={message_id}")
+        message_id= payload['context'].get('message_id', None),
 
         # Import validation module (cache)
         if domain not in validation_modules_cache:
             try:
                 module_name = f"validations.{domain}.generated.l1_validations"
-                print(f"[INFO] Loading validation module: {module_name}")
                 validation_modules_cache[domain] = importlib.import_module(module_name)
-            except ModuleNotFoundError as e:
-                print(f"[WARN] No validation module found for domain={domain}")
-                print(f"[DEBUG] ModuleNotFoundError details: {str(e)}")
-                print(f"[DEBUG] sys.path at error time: {sys.path}")
+            except ModuleNotFoundError:
+                print("unable to load the modules")
                 return json.dumps({
                     "status": "not_applicable",
                     "domain":payload['context'].get('domain', None),
@@ -51,7 +45,6 @@ def validate_payload_json(payload_str: str) -> str:
 
         l1_validations = validation_modules_cache[domain]
         result = l1_validations.perform_l1_validations(action, payload)
-        print(f"[INFO] Validation success | domain={domain}, tx={transaction_id}")
         return json.dumps({
             "status": "success",
             "result": result,
@@ -61,7 +54,7 @@ def validate_payload_json(payload_str: str) -> str:
         })
 
     except Exception as e:
-        print(f"[ERROR] Validation failed: {str(e)}")
+        print("validation error in processing the file")
         return json.dumps({
             "status": "error",
             "issues": [f"Validation error: {str(e)}"]
@@ -75,10 +68,9 @@ validate_udf = udf(validate_payload_json, StringType())
 def read_json_data(spark, paths):
     raw_df = None
     for path in paths:
-        print(f"[INFO] Reading input path: {path}")
+        print(f"Reading: {path}")
         df_single = spark.read.schema(schema).json(path)
         raw_df = df_single if raw_df is None else raw_df.union(df_single)
-    print("[INFO] Finished reading input files")
     return raw_df.withColumnRenamed("data", "value")
 
 # def output_to_parquet(df, output_path):
@@ -87,8 +79,6 @@ def read_json_data(spark, paths):
 def output_to_parquet(df, base_path):
     today = datetime.now().strftime("%Y-%m-%d")
     df_with_date = df.withColumn("dt", lit(today))  # add partition column
-    print(f"[INFO] Writing DataFrame to {base_path} partitioned by dt={today}")
-
 
     (
         df_with_date.write
@@ -96,17 +86,14 @@ def output_to_parquet(df, base_path):
         .partitionBy("dt")      # creates dt=YYYY-MM-DD folders
         .parquet(base_path)
     )
-    print(f"[INFO] Write complete: {base_path}")
 # --------------------------------------------------------
 # Main validation runner
 # --------------------------------------------------------
 def run_validation(df):
-    print("[INFO] Running validation UDF...")
     df_validated = df.withColumn("validation", validate_udf(col("value")))
-    print("[INFO] Parsing validation results into structured columns...")
 
     # parse JSON result into columns
-    df_parsed = df_validated.withColumn("parsed", from_json(col("validation"), 
+    df_parsed = df_validated.withColumn("parsed", from_json(col("validation"),
         StructType([
             StructField("status", StringType(), True),
             StructField("transaction_id", StringType(), True),
@@ -126,45 +113,19 @@ def run_validation(df):
         col("parsed.message_id"),
         col("subscriber_type")
     ]
-    print("[INFO] Filtering validations Performed...")
 
     # separate outputs
     df_success = df_parsed.filter(col("parsed.status") == "success").select(*base_cols,
         col("parsed.result").alias("issues"))
-    print("[INFO] Filtering validations not applicable...")
 
     df_missing = df_parsed.filter(col("parsed.status") == "not_applicable").select(*base_cols)
-    print("[INFO] Validation pipeline completed")
 
     return df_success, df_missing
 
-# --------------------------------------------------------
-# Main
-# --------------------------------------------------------
-if __name__ == "__main__":
-    print("[START] Spark job: ONDC Payload Validation")
 
-    # Debug: Print Python path and list available modules
-    print(f"[DEBUG] Python sys.path: {sys.path}")
-    print(f"[DEBUG] Current working directory: {os.getcwd()}")
-
-    # Try to list what's in the extracted zip
-    for path in sys.path:
-        if os.path.exists(path) and ('validations' in path or path == '.'):
-            print(f"[DEBUG] Contents of {path}:")
-            try:
-                for item in os.listdir(path):
-                    print(f"  - {item}")
-            except Exception as e:
-                print(f"  Error listing: {e}")
-
-    spark = SparkSession.builder \
-        .appName("ONDC Payload Validation") \
-        .enableHiveSupport() \
-        .getOrCreate()
 
     # Input
-json_raw_df = read_json_data(spark, ["s3://ondc-rds-analytics-data-export/topics/events/server_date=2025-09-25/hour=15/events+3+3244410720.bin.gz"])
+json_raw_df = read_json_data(spark, ["s3://ondc-rds-analytics-data-export/topics/events/server_date=2024-08-15/hour=16/events+3+0479371275.bin.gz"])
 
 # Run validation
 df_success, df_missing = run_validation(json_raw_df)
