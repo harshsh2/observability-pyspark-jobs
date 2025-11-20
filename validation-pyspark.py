@@ -5,6 +5,8 @@ from pyspark.sql.types import StructType, StructField, StringType, LongType, Arr
 import json
 import importlib
 
+from utils.performance_test import log_runtime
+
 # --------------------------------------------------------
 # Schema for raw payload
 # --------------------------------------------------------
@@ -19,6 +21,7 @@ schema = StructType([
 # Validation with caching
 # --------------------------------------------------------
 validation_modules_cache = {}
+
 
 def validate_payload_json(payload_str: str) -> str:
     try:
@@ -96,6 +99,8 @@ def output_to_parquet(df, base_path):
 # --------------------------------------------------------
 # Main validation runner
 # --------------------------------------------------------
+
+@log_runtime
 def run_validation(df):
     print("[INFO] Running validation UDF...")
     df_validated = df.withColumn("validation", validate_udf(col("value")))
@@ -132,6 +137,11 @@ def run_validation(df):
     df_missing = df_parsed.filter(col("parsed.status") == "not_applicable").select(*base_cols)
     print("[INFO] Validation pipeline completed")
 
+    print("[INFO] Showing dataframes where validations are performed...")
+    df_success.show()
+    print("[INFO] Showing dataframes where validations are not applicable...")
+    df_missing.show()
+
     return df_success, df_missing
 
 # --------------------------------------------------------
@@ -150,10 +160,10 @@ if __name__ == "__main__":
     # Run validation
     df_success, df_missing = run_validation(json_raw_df)
     # Write outputs
-    print("[INFO] Showing dataframes where validations are performed...")
-    df_success.show(2)
-    print("[INFO] Showing dataframes where validations are not applicable...")
-    df_missing.show(2)
+    # print("[INFO] Showing dataframes where validations are performed...")
+    # df_success.show(2)
+    # print("[INFO] Showing dataframes where validations are not applicable...")
+    # df_missing.show(2)
     output_to_parquet(df_success, "output/validations_done")
     output_to_parquet(df_missing, "output/validations_missing")
     print("[END] Stopping Spark session")

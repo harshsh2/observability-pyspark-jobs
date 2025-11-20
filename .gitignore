@@ -6,4 +6,6 @@ package-lock.json
 events*.bin*
 .DS_Store
 build.yaml
+__pycache__
+logs
 # validations
