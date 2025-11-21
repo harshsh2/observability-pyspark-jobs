@@ -1,4 +1,3 @@
-# validation is present  s3://ondc-rds-analytics-data-export/pyspark/validations.zip
 """
 %idle_timeout 2880
 %glue_version 5.0
@@ -6,30 +5,14 @@
 %number_of_workers 3
 # validation is present  s3://ondc-rds-analytics-data-export/pyspark/validations.zip
 %extra_py_files s3://ondc-rds-analytics-data-export/pyspark/validations.zip
-
-import sys
-from awsglue.transforms import *
-from awsglue.utils import getResolvedOptions
-from pyspark.context import SparkContext
-from awsglue.context import GlueContext
-from awsglue.job import Job
-
-sc = SparkContext.getOrCreate()
-glueContext = GlueContext(sc)
-spark = glueContext.spark_session
-job = Job(glueContext)
 """
+
 import sys
 from awsglue.transforms import *
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
 from awsglue.context import GlueContext
 from awsglue.job import Job
-
-sc = SparkContext.getOrCreate()
-glueContext = GlueContext(sc)
-spark = glueContext.spark_session
-job = Job(glueContext)
 from pyspark.sql import SparkSession
 from datetime import datetime
 from pyspark.sql.functions import col, udf, from_json, split, lit
@@ -38,14 +21,12 @@ import json
 import importlib
 
 # --------------------------------------------------------
-# Schema for raw payload
+# Initialize Glue Context
 # --------------------------------------------------------
-schema = StructType([
-    StructField("type", StringType(), True),
-    StructField("user_id", StringType(), True),
-    StructField("data", StringType(), True),  # raw JSON string
-    StructField("server-timestamp", LongType(), True),
-])
+sc = SparkContext.getOrCreate()
+glueContext = GlueContext(sc)
+spark = glueContext.spark_session
+job = Job(glueContext)
 
 # --------------------------------------------------------
 # Validation with caching
@@ -71,7 +52,7 @@ def validate_payload_json(payload_str: str) -> str:
                 validation_modules_cache[domain] = importlib.import_module(module_name)
             except ModuleNotFoundError:
                 print(f"[WARN] No validation module found for domain={domain}")
-                print("enable to load the modules")
+                print("unable to load the modules")
                 return json.dumps({
                     "status": "not_applicable",
                     "domain": payload['context'].get('domain', None),
@@ -92,7 +73,6 @@ def validate_payload_json(payload_str: str) -> str:
 
     except Exception as e:
         print(f"[ERROR] Validation failed: {str(e)}")
-        # print("validation error in processing the file")
         return json.dumps({
             "status": "error",
             "issues": [f"Validation error: {str(e)}"]
@@ -105,18 +85,21 @@ validate_udf = udf(validate_payload_json, StringType())
 # --------------------------------------------------------
 # IO Helpers
 # --------------------------------------------------------
-def read_json_data(spark, paths):
+def read_parquet_data(spark, paths):
+    """
+    Read parquet files containing 'data' column with JSON payload
+    Assumes parquet already has 'domain' column for filtering
+    """
     raw_df = None
     for path in paths:
-        print(f"[INFO] Reading input path: {path}")
-        df_single = spark.read.schema(schema).json(path)
+        print(f"[INFO] Reading input parquet path: {path}")
+        df_single = spark.read.parquet(path)
         raw_df = df_single if raw_df is None else raw_df.union(df_single)
-    print("[INFO] Finished reading input files")
-    return raw_df.withColumnRenamed("data", "value")
 
+    record_count = raw_df.count()
+    print(f"[INFO] Finished reading input files. Total records: {record_count}")
+    return raw_df
 
-# def output_to_parquet(df, output_path):
-#     df.write.mode("overwrite").parquet(output_path)
 
 def output_to_parquet(df, base_path):
     today = datetime.now().strftime("%Y-%m-%d")
@@ -132,14 +115,45 @@ def output_to_parquet(df, base_path):
 
 
 # --------------------------------------------------------
-# Main validation runner
+# Main validation runner with domain filtering
 # --------------------------------------------------------
-def run_validation(df):
+def run_validation(df, target_domains=None):
+    """
+    Run validation with domain filtering applied before UDF execution
+
+    Args:
+        df: Input DataFrame with 'data' column containing JSON payload and 'domain' column
+        target_domains: List of domains to process (e.g., ['RET10', 'RET11']).
+                       If None, process all domains.
+    """
+    print("[INFO] Using existing domain column for filtering...")
+
+    # Show domain distribution
+    print("[INFO] Domain distribution in dataset:")
+    df.groupBy("domain").count().orderBy("domain").show(50, truncate=False)
+
+    # Apply domain filter if specified
+    if target_domains:
+        print(f"[INFO] Filtering for domains: {target_domains}")
+        df_filtered = df.filter(col("domain").isin(target_domains))
+        filtered_count = df_filtered.count()
+        print(f"[INFO] Records after domain filtering: {filtered_count}")
+
+        if filtered_count == 0:
+            print("[WARN] No records found for specified domains!")
+            return None, None
+    else:
+        print("[INFO] Processing all domains")
+        df_filtered = df
+
+    # Rename 'data' column to 'value' for compatibility with validation UDF
+    df_enriched = df_filtered.withColumnRenamed("data", "value")
+
     print("[INFO] Running validation UDF...")
-    df_validated = df.withColumn("validation", validate_udf(col("value")))
+    df_validated = df_enriched.withColumn("validation", validate_udf(col("value")))
     print("[INFO] Parsing validation results into structured columns...")
 
-    # parse JSON result into columns
+    # Parse JSON result into columns
     df_parsed = df_validated.withColumn("parsed", from_json(col("validation"),
                                                             StructType([
                                                                 StructField("status", StringType(), True),
@@ -163,35 +177,64 @@ def run_validation(df):
     ]
 
     print("[INFO] Filtering validations Performed...")
-
-    # separate outputs
+    # Separate outputs
     df_success = df_parsed.filter(col("parsed.status") == "success").select(*base_cols,
                                                                             col("parsed.result").alias("issues"))
+
     print("[INFO] Filtering validations not applicable...")
-
-
     df_missing = df_parsed.filter(col("parsed.status") == "not_applicable").select(*base_cols)
+
     print("[INFO] Validation pipeline completed")
+    success_count = df_success.count()
+    missing_count = df_missing.count()
+    print(f"[INFO] Success count: {success_count}")
+    print(f"[INFO] Not applicable count: {missing_count}")
 
     return df_success, df_missing
 
-    # Input
 
+# --------------------------------------------------------
+# Main Execution
+# --------------------------------------------------------
+print("[START] AWS Glue Job: ONDC Payload Validation from Parquet")
 
-json_raw_df = read_json_data(spark,
-                             ["s3://ondc-rds-analytics-data-export/topics/events/server_date=2024-08-15/hour=16/events+3+0479371275.bin.gz"])
+# Input paths - Update with your parquet paths
+input_paths = [
+    "s3://ondc-rds-analytics-data-export/parquet-data/dt=2024-08-15/",
+    # Add more paths as needed
+]
 
-# Run validation
-df_success, df_missing = run_validation(json_raw_df)
+# Read parquet data (assumes columns: data, domain, type, user_id)
+parquet_df = read_parquet_data(spark, input_paths)
 
-# Write outputs
-print("[INFO] Showing dataframes where validations are performed...")
-df_success.show(2)
-print("[INFO] Showing dataframes where validations are not applicable...")
-df_missing.show(2)
-output_to_parquet(df_success,
-                  "s3://ondc-rds-analytics-data-export/temp/pyspark-validations-job/output/validations_done")
-output_to_parquet(df_missing,
-                  "s3://ondc-rds-analytics-data-export/temp/pyspark-validations-job/output/validations_missing")
+# Specify target domains to filter (or None for all domains)
+# Example: target_domains = ['RET10', 'RET11', 'RET12']
+# Set to None to process all domains
+target_domains = ['RET10']  # Change this based on your needs
 
+# Run validation with domain filtering
+df_success, df_missing = run_validation(parquet_df, target_domains=target_domains)
+
+if df_success is not None and df_missing is not None:
+    # Write outputs
+    print("[INFO] Showing dataframes where validations are performed...")
+    df_success.show(2, truncate=False)
+
+    print("[INFO] Showing dataframes where validations are not applicable...")
+    df_missing.show(2, truncate=False)
+
+    output_to_parquet(
+        df_success,
+        "s3://ondc-rds-analytics-data-export/temp/pyspark-validations-job/output/validations_done"
+    )
+    output_to_parquet(
+        df_missing,
+        "s3://ondc-rds-analytics-data-export/temp/pyspark-validations-job/output/validations_missing"
+    )
+
+    print("[SUCCESS] Job completed successfully")
+else:
+    print("[ERROR] No data to process after filtering")
+
+# Commit the Glue job
 job.commit()
