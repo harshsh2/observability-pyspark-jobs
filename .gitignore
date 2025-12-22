@@ -9,3 +9,8 @@ build.yaml
 __pycache__
 logs
 # validations
+.*env
+.python-version
+.vscode
+*.ipynb
+*.lprof

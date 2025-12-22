@@ -83,17 +83,16 @@ async def validate_event(event):
     
     result = validate_payload_json(json.dumps(json.loads(event).get('data', None)))
 
-    if result.get("status") in ["success", "not_applicable"]:
+    if result.get("status") in ["success"]:
         await broker.publish(
                 json.dumps(result)
-                , topic="validated-events"
+                , topic="validations-done"
             )
-    else:
+    elif result.get("status") in ["not_applicable"]:
         await broker.publish(
                 json.dumps(result)
-                , topic="invalid-events"
+                , topic="validations-missing"
             )
-    
 
 if __name__ == "__main__":
     asyncio.run(app.run())
