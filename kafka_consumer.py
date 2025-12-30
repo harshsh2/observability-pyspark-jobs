@@ -13,15 +13,16 @@ broker = KafkaBroker(os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
 app = FastStream(broker)
 
 validation_modules_cache = {}
+domains_to_validate = [os.getenv("DOMAIN_TO_VALIDATE", "ONDC:RET10")]
 
-def validate_payload_json(payload_str: str) -> str:
+def validate_payload_json(payload: json) -> dict:
     try:
-        payload = json.loads(payload_str)
-        raw_domain = payload['context'].get('domain', '')
+        # payload = json.loads(payload_str)
+        raw_domain = payload.get('context', {}).get('domain', '')
         domain = raw_domain.split(":")[-1] if raw_domain else None # ONDC:RET10 -> RET10
-        action = payload['context'].get('action', '')
-        transaction_id= payload['context'].get('transaction_id', None)
-        message_id= payload['context'].get('message_id', None)
+        action = payload.get('context', {}).get('action', '')
+        transaction_id = payload.get('context', {}).get('transaction_id', None)
+        message_id = payload.get('context', {}).get('message_id', None)
         print(f"[DEBUG] Validating payload | domain={domain}, action={action}, tx={transaction_id}, msg={message_id}")
 
         # Import validation module (cache)
@@ -38,12 +39,6 @@ def validate_payload_json(payload_str: str) -> str:
                     "transaction_id": transaction_id,
                     "message_id": message_id,
                 }
-                # return json.dumps({
-                #     "status": "not_applicable",
-                #     "domain":payload['context'].get('domain', None),
-                #     "transaction_id": transaction_id,
-                #     "message_id": message_id,
-                # })
 
         l1_validations = validation_modules_cache[domain]
         result = l1_validations.perform_l1_validations(action, payload)
@@ -51,17 +46,10 @@ def validate_payload_json(payload_str: str) -> str:
         return {
             "status": "success",
             "result": result,
-            "domain":payload['context'].get('domain', None),
+            "domain": raw_domain,
             "transaction_id": transaction_id,
             "message_id": message_id,
         }
-        # return json.dumps({
-        #     "status": "success",
-        #     "result": result,
-        #     "domain":payload['context'].get('domain', None),
-        #     "transaction_id": transaction_id,
-        #     "message_id": message_id,
-        # })
 
     except Exception as e:
         print(f"[ERROR] Validation failed: {str(e)}")
@@ -69,10 +57,6 @@ def validate_payload_json(payload_str: str) -> str:
             "status": "error",
             "issues": [f"Validation error: {str(e)}"]
         }
-        # return json.dumps({
-        #     "status": "error",
-        #     "issues": [f"Validation error: {str(e)}"]
-        # })
 
 @broker.subscriber(
     os.getenv("KAFKA_CONSUMER_TOPIC", "event-payloads"),
@@ -80,8 +64,21 @@ def validate_payload_json(payload_str: str) -> str:
 )
 async def validate_event(event):
     # print(type(event))
-    
-    result = validate_payload_json(json.dumps(json.loads(event).get('data', None)))
+    payload = json.loads(event).get('data', {})
+    domain = payload.get("context", {}).get("domain", None)
+    transaction_id = payload.get("context", {}).get('transaction_id', None)
+    message_id = payload.get("context", {}).get('message_id', None)
+
+    if domain not in domains_to_validate:
+        print(f"[DEBUG] Skipping validation | domain={domain}, tx={transaction_id}, msg={message_id}")
+        result = {
+                    "status": "not_applicable",
+                    "domain": domain,
+                    "transaction_id": transaction_id,
+                    "message_id": message_id,
+                }
+    else:
+        result = validate_payload_json(payload)
 
     if result.get("status") in ["success"]:
         await broker.publish(
