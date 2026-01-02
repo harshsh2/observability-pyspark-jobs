@@ -6,6 +6,7 @@ import importlib
 import asyncio
 from dotenv import load_dotenv
 import os
+import time
 
 load_dotenv(dotenv_path = '.env')
 
@@ -63,7 +64,7 @@ def validate_payload_json(payload: json) -> dict:
     group_id=os.getenv("KAFKA_CONSUMER_GROUP_ID", "validator-group"),
 )
 async def validate_event(event):
-    # print(type(event))
+    handler_start = time.perf_counter()
     payload = json.loads(event).get('data', {})
     domain = payload.get("context", {}).get("domain", None)
     transaction_id = payload.get("context", {}).get('transaction_id', None)
@@ -79,6 +80,9 @@ async def validate_event(event):
                 }
     else:
         result = validate_payload_json(payload)
+    
+    total_elapsed_ms = (time.perf_counter() - handler_start) * 1000
+    print(f"[DEBUG] Time taken for processing a payload: {total_elapsed_ms:.4f} ms | domain={domain}, tx={transaction_id}, msg={message_id}")
 
     if result.get("status") in ["success"]:
         await broker.publish(
