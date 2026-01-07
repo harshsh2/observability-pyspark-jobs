@@ -1,12 +1,12 @@
 from faststream import FastStream
 from faststream.kafka import KafkaBroker
-from pydantic import BaseModel
 import json
 import importlib
 import asyncio
 from dotenv import load_dotenv
 import os
 import time
+import logging
 
 load_dotenv(dotenv_path = '.env')
 
@@ -16,6 +16,20 @@ app = FastStream(broker)
 validation_modules_cache = {}
 domains_to_validate = [os.getenv("DOMAIN_TO_VALIDATE", "ONDC:RET10")]
 
+def get_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('[%(asctime)s] %(filename)s %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    return logger
+
+logger = get_logger()
+
+
 def validate_payload_json(payload: json) -> dict:
     try:
         # payload = json.loads(payload_str)
@@ -24,16 +38,16 @@ def validate_payload_json(payload: json) -> dict:
         action = payload.get('context', {}).get('action', '')
         transaction_id = payload.get('context', {}).get('transaction_id', None)
         message_id = payload.get('context', {}).get('message_id', None)
-        print(f"[DEBUG] Validating payload | domain={domain}, action={action}, tx={transaction_id}, msg={message_id}")
+        logger.debug(f"Validating payload | domain={domain}, action={action}, tx={transaction_id}, msg={message_id}")
 
         # Import validation module (cache)
         if domain not in validation_modules_cache:
             try:
                 module_name = f"validations.{domain}.generated.l1_validations"
-                print(f"[INFO] Loading validation module: {module_name}")
+                logger.info(f"Loading validation module: {module_name}")
                 validation_modules_cache[domain] = importlib.import_module(module_name)
             except ModuleNotFoundError:
-                print(f"[WARN] No validation module found for domain={domain}")
+                logger.warning(f"No validation module found for domain={domain}")
                 return {
                     "status": "not_applicable",
                     "domain":payload['context'].get('domain', None),
@@ -43,7 +57,8 @@ def validate_payload_json(payload: json) -> dict:
 
         l1_validations = validation_modules_cache[domain]
         result = l1_validations.perform_l1_validations(action, payload)
-        print(f"[INFO] Validation success | domain={domain}, tx={transaction_id}")
+        logger.info(f"Validation success | domain={domain}, tx={transaction_id}")
+        
         return {
             "status": "success",
             "result": result,
@@ -53,7 +68,7 @@ def validate_payload_json(payload: json) -> dict:
         }
 
     except Exception as e:
-        print(f"[ERROR] Validation failed: {str(e)}")
+        logger.error(f"Validation failed: {str(e)}")
         return {
             "status": "error",
             "issues": [f"Validation error: {str(e)}"]
@@ -62,6 +77,7 @@ def validate_payload_json(payload: json) -> dict:
 @broker.subscriber(
     os.getenv("KAFKA_CONSUMER_TOPIC", "event-payloads"),
     group_id=os.getenv("KAFKA_CONSUMER_GROUP_ID", "validator-group"),
+    max_poll_records=10
 )
 async def validate_event(event):
     handler_start = time.perf_counter()
@@ -71,7 +87,7 @@ async def validate_event(event):
     message_id = payload.get("context", {}).get('message_id', None)
 
     if domain not in domains_to_validate:
-        print(f"[DEBUG] Skipping validation | domain={domain}, tx={transaction_id}, msg={message_id}")
+        logger.debug(f"Skipping validation | domain={domain}, tx={transaction_id}, msg={message_id}")
         result = {
                     "status": "not_applicable",
                     "domain": domain,
@@ -82,7 +98,7 @@ async def validate_event(event):
         result = validate_payload_json(payload)
     
     total_elapsed_ms = (time.perf_counter() - handler_start) * 1000
-    print(f"[DEBUG] Time taken for processing a payload: {total_elapsed_ms:.4f} ms | domain={domain}, tx={transaction_id}, msg={message_id}")
+    logger.debug(f"Time taken for processing a payload: {total_elapsed_ms:.4f} ms | domain={domain}, tx={transaction_id}, msg={message_id}")
 
     if result.get("status") in ["success"]:
         await broker.publish(
