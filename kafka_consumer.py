@@ -1,3 +1,4 @@
+from http import client
 from faststream import FastStream
 from faststream.kafka import KafkaBroker
 import json
@@ -7,7 +8,9 @@ from dotenv import load_dotenv
 import os
 import time
 import logging
+import boto3
 
+# Load environment variables from .env file
 load_dotenv(dotenv_path = '.env')
 
 broker = KafkaBroker(os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"))
@@ -15,6 +18,8 @@ app = FastStream(broker)
 
 validation_modules_cache = {}
 domains_to_validate = [os.getenv("DOMAIN_TO_VALIDATE", "ONDC:RET10")]
+
+cw_client = boto3.client('cloudwatch', region_name=os.getenv("AWS_REGION", "ap-south-1"))
 
 def get_logger():
     logger = logging.getLogger(__name__)
@@ -98,7 +103,66 @@ async def validate_event(event):
         result = validate_payload_json(payload)
     
     total_elapsed_ms = (time.perf_counter() - handler_start) * 1000
-    logger.debug(f"Time taken for processing a payload: {total_elapsed_ms:.4f} ms | domain={domain}, tx={transaction_id}, msg={message_id}")
+    
+    # calculate cloudwatch metrics
+    payload_size = len(event.encode('utf-8'))
+    payload_type = payload.get("context", {}).get("action", "unknown")
+
+    logger.info("Publishing metrics to CloudWatch")
+
+    cw_client.put_metric_data(
+        Namespace='ondc-no/workbench',
+        MetricData=[
+            {
+                'MetricName': 'ValidationProcessingTime',
+                'Value': total_elapsed_ms,
+                'Unit': 'Milliseconds',
+                'Dimensions': [
+                    {
+                        'Name': 'Service',
+                        'Value': 'json-validator'
+                    },
+                    {
+                        'Name': 'Domain',
+                        'Value': domain if domain else 'Unknown'
+                    },
+                    {
+                        'Name': 'Status',
+                        'Value': result.get("status", "unknown")
+                    },
+                    {
+                        'Name': 'PayloadType',
+                        'Value': payload_type
+                    },
+                ]
+            },
+            {
+                'MetricName': 'PayloadSizeBytes',
+                'Value': payload_size,
+                'Unit': 'Bytes',
+                'Dimensions': [
+                    {
+                        'Name': 'Service',
+                        'Value': 'json-validator'
+                    },
+                    {
+                        'Name': 'Domain',
+                        'Value': domain if domain else 'Unknown'
+                    },
+                    {
+                        'Name': 'Status',
+                        'Value': result.get("status", "unknown")
+                    },
+                    {
+                        'Name': 'PayloadType',
+                        'Value': payload_type
+                    },
+                ]
+            }
+        ]
+    )
+
+    # logger.debug(f"Time taken for processing a payload: {total_elapsed_ms:.4f} ms | domain={domain}, tx={transaction_id}, msg={message_id}")
 
     if result.get("status") in ["success"]:
         await broker.publish(
