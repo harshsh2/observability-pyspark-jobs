@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: faststream-validator
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: faststream-validator
+  template:
+    metadata:
+      labels:
+        app: faststream-validator
+    spec:
+      containers:
+        - name: kafka-consumer
+          image: kafka_validation_consumer:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "192.168.1.3:9092"
+            - name: KAFKA_CONSUMER_TOPIC
+              value: "event-payloads"
+            - name: KAFKA_CONSUMER_GROUP_ID
+              value: "validator-group"
+            - name: DOMAIN_TO_VALIDATE
+              value: "ONDC:RET10"    
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: 1000m
+            limits:
+              memory: "2Gi"
+              cpu: 2000m
+          

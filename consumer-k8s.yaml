@@ -1,30 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: faststream-validator
+  name: no-workbench-faststream-validator-stage
 spec:
-  replicas: 10
+  replicas: 5
   selector:
     matchLabels:
-      app: faststream-validator
+      app: no-workbench-faststream-validator
   template:
     metadata:
       labels:
-        app: faststream-validator
+        app: no-workbench-faststream-validator
     spec:
       containers:
-        - name: kafka-consumer
-          image: kafka_validation_consumer:latest
+        - name: no-workbench-validator
+          image: 568130295144.dkr.ecr.ap-south-1.amazonaws.com/ondc-prod-prod-ondc-images:ondc-no-workbench-validations-v3
           imagePullPolicy: IfNotPresent
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
-              value: "192.168.1.7:9092"
+              value: "b-3.kafkaonsearchcluster.u3k9qd.c2.kafka.ap-south-1.amazonaws.com:9092"
             - name: KAFKA_CONSUMER_TOPIC
-              value: "event-payloads"
+              value: "on_search_cluster_p2p_payload"
             - name: KAFKA_CONSUMER_GROUP_ID
-              value: "validator-group"
+              value: "no-workbench-staging-validator-group"
             - name: DOMAIN_TO_VALIDATE
-              value: "ONDC:RET10"    
+              value: "ONDC:RET10"
+            - name: KAFKA_VALIDATIONS_SUCCESS_TOPIC
+              value: "no_workbench_staging_validations_done"
+            - name: KAFKA_VALIDATIONS_MISSING_TOPIC
+              value: "no_workbench_staging_validations_missing"
           resources:
             requests:
               memory: "500Mi"
