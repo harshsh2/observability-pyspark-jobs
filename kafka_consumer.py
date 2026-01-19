@@ -15,6 +15,8 @@ app = FastStream(broker)
 
 validation_modules_cache = {}
 domains_to_validate = [os.getenv("DOMAIN_TO_VALIDATE", "ONDC:RET10")]
+validation_success_topic = os.getenv("KAFKA_VALIDATIONS_SUCCESS_TOPIC", "validations-done")
+validation_missing_topic = os.getenv("KAFKA_VALIDATIONS_MISSING_TOPIC", "validations-missing")
 
 def validate_payload_json(payload: json) -> dict:
     try:
@@ -65,7 +67,8 @@ def validate_payload_json(payload: json) -> dict:
 )
 async def validate_event(event):
     handler_start = time.perf_counter()
-    payload = json.loads(event).get('data', {})
+    # payload = json.loads(event).get('data', {})
+    payload = event.get('data', {})
     domain = payload.get("context", {}).get("domain", None)
     transaction_id = payload.get("context", {}).get('transaction_id', None)
     message_id = payload.get("context", {}).get('message_id', None)
@@ -87,12 +90,12 @@ async def validate_event(event):
     if result.get("status") in ["success"]:
         await broker.publish(
                 json.dumps(result)
-                , topic="validations-done"
+                , topic=validation_success_topic
             )
     elif result.get("status") in ["not_applicable"]:
         await broker.publish(
                 json.dumps(result)
-                , topic="validations-missing"
+                , topic=validation_missing_topic
             )
 
 if __name__ == "__main__":
