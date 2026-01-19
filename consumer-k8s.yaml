@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: no-workbench-validator
-          image: 568130295144.dkr.ecr.ap-south-1.amazonaws.com/ondc-prod-prod-ondc-images:ondc-no-workbench-validations-v3
+          image: 568130295144.dkr.ecr.ap-south-1.amazonaws.com/ondc-prod-prod-ondc-images:ondc-no-workbench-validations-v6
           imagePullPolicy: IfNotPresent
           env:
             - name: KAFKA_BOOTSTRAP_SERVERS
@@ -29,6 +29,14 @@ spec:
               value: "no_workbench_staging_validations_done"
             - name: KAFKA_VALIDATIONS_MISSING_TOPIC
               value: "no_workbench_staging_validations_missing"
+            - name: KAFKA_MAX_POLL_RECORDS
+              value: "1"
+            - name: KAFKA_MAX_POLL_INTERVAL_MS
+              value: "120000"
+            - name: KAFKA_HEARTBEAT_INTERVAL_MS
+              value: "3000"
+            - name: KAFKA_SESSION_TIMEOUT_MS
+              value: "30000"
           resources:
             requests:
               memory: "500Mi"

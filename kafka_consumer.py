@@ -83,7 +83,9 @@ def validate_payload_json(payload: json) -> dict:
 @broker.subscriber(
     os.getenv("KAFKA_CONSUMER_TOPIC", "event-payloads"),
     group_id=os.getenv("KAFKA_CONSUMER_GROUP_ID", "validator-group"),
-    max_poll_records=10
+    max_poll_records=1,
+    max_poll_interval_ms=120000,
+    session_timeout_ms=30000
 )
 async def validate_event(event):
     handler_start = time.perf_counter()
