@@ -24,7 +24,7 @@ spec:
             - name: KAFKA_CONSUMER_GROUP_ID
               value: "no-workbench-staging-validator-group"
             - name: DOMAIN_TO_VALIDATE
-              value: "ONDC:RET10"
+              value: "ONDC:RET10,ONDC:RET11"
             - name: KAFKA_VALIDATIONS_SUCCESS_TOPIC
               value: "no_workbench_staging_validations_done"
             - name: KAFKA_VALIDATIONS_MISSING_TOPIC

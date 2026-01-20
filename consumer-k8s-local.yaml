@@ -24,7 +24,7 @@ spec:
             - name: KAFKA_CONSUMER_GROUP_ID
               value: "validator-group"
             - name: DOMAIN_TO_VALIDATE
-              value: "ONDC:RET10"    
+              value: "ONDC:RET10,ONDC:RET11"
           resources:
             requests:
               memory: "500Mi"
